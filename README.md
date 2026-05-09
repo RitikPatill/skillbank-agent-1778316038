@@ -1,6 +1,6 @@
-# SkillBank
+# SkillBank: A Self-Improving Code Agent
 
-A skill-augmented LLM agent that builds a persistent knowledge base from every task it solves.
+A coding agent that auto-distills reusable skills from every solved task and retrieves them via RAG to improve future answers.
 
 ## Problem Statement
 
