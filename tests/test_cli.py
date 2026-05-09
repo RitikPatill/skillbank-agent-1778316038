@@ -15,7 +15,7 @@ def test_help_exits_zero():
 
 
 def test_solve_exits_zero():
-    with patch("skillbank.cli.solve_task", return_value="ok"):
+    with patch("skillbank.cli.solve_and_store", return_value=("ok", [])):
         with patch("skillbank.cli.get_config", return_value=Config(provider="anthropic", model="claude-sonnet-4-6", api_key="k")):
             result = runner.invoke(app, ["solve", "hello"])
     assert result.exit_code == 0

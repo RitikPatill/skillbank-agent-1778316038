@@ -1,9 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import anthropic
 from openai import OpenAI
 
 from skillbank.config import Config, get_config
+from skillbank.extractor import extract_skills
+from skillbank.models import Skill
+
+if TYPE_CHECKING:
+    from skillbank.store import SkillStore
 
 SYSTEM_PROMPT_TEMPLATE = """\
 You are SkillBank, an expert software-engineering assistant.
@@ -55,3 +62,11 @@ def solve_task(task: str, config: Config | None = None) -> str:
 
     else:
         raise ValueError(f"Unknown provider: {config.provider!r}")
+
+
+def solve_and_store(task: str, config: Config, store: SkillStore) -> tuple[str, list[Skill]]:
+    """Solve a task and extract+store skills. Returns (solution_text, newly_stored_skills)."""
+    solution = solve_task(task, config)
+    new_skills = extract_skills(task, solution, config)
+    store.upsert(new_skills)
+    return solution, new_skills

@@ -46,20 +46,25 @@ Task Input
 
 Skills evolve: each tracks `use_count` and `success_rate` via thumbs-up/down in the UI. An on-demand `refine` command merges near-duplicates and prunes low-confidence skills.
 
-Steps 1, 2, 4, and 5 are planned; step 3 (SOLVE) is active as of M2.
+Steps 1 and 2 are planned. Steps 3 (SOLVE) and 4 (EXTRACT) are complete as of M3. Step 5 currently persists to JSON (`~/.skillbank/skills.json`) as a stepping stone; ChromaDB embedding ships in M4.
 
-## Current Status — M2
+## Current Status — M3
 
 **M1** (scaffold) shipped the package structure, `pyproject.toml`, Typer CLI stubs, and four `--help` tests. All subcommands printed `not yet implemented`.
 
-**M2** (core agent loop + LLM integration) is now complete. What changed:
+**M2** (core agent loop + LLM integration) added `solve_task()` dispatching to Anthropic/OpenAI, `get_config()`, and a functional `solve` CLI command with Rich output.
 
-- `src/skillbank/agent.py` — `solve_task()` dispatches to the Anthropic SDK or OpenAI SDK based on `SKILLBANK_PROVIDER`; builds a system prompt with a `{skills_block}` placeholder reserved for M4 RAG injection
-- `src/skillbank/config.py` — `get_config()` reads `SKILLBANK_PROVIDER`, `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, and `SKILLBANK_MODEL` from the environment; validates required keys and exits with a clear error message
-- `src/skillbank/cli.py` — `solve` command is now functional: loads config, calls `solve_task`, and pretty-prints the solution as Markdown inside a Rich panel; `--show-skills` flag is wired (reports "skill bank empty" until M4)
-- `tests/test_solve.py` — four unit tests covering the Anthropic happy path, OpenAI provider, CLI `--show-skills` flag, and unknown-provider error (all mocked; no live API calls required)
+**M3** (skill extraction pipeline) is now complete. What changed:
 
-Still stubbed (`not yet implemented`): `skills list`, `skills inspect`, `skills delete`, `skills tag`, `refine`.
+- `src/skillbank/models.py` — `SkillDraft`, `SkillExtractionResult`, and `Skill` Pydantic v2 models; `Skill` carries `id`, `name`, `description`, `code_pattern`, `tags`, `created_at`, `use_count`, `success_rate`
+- `src/skillbank/extractor.py` — `extract_skills(task, solution, config)` runs a second focused LLM call via `instructor` structured output (uses `claude-haiku-4-5-20251001` / `gpt-4o-mini` for cost efficiency); returns `[]` on any failure so extraction never crashes `solve`
+- `src/skillbank/store.py` — `SkillStore` JSON persistence at `~/.skillbank/skills.json`; supports `all()`, `get()`, `upsert()` (deduplicates by name), `delete()`, `add_tag()`; writes atomically via `.tmp` + `os.replace`
+- `src/skillbank/agent.py` — new `solve_and_store()` function that calls `solve_task` then `extract_skills` then `store.upsert`; `solve_task` is unchanged
+- `src/skillbank/cli.py` — `solve` command now calls `solve_and_store` and prints "Stored N skill(s)." after the solution; `skills list`, `skills inspect`, `skills delete`, `skills tag` are fully implemented against `SkillStore`
+- `tests/test_extractor.py` — three tests (Anthropic path, OpenAI path, exception → empty list)
+- `tests/test_store.py` — nine tests covering all `SkillStore` operations using `tmp_path`
+
+Still stubbed: `refine`.
 
 ## Install
 
@@ -69,7 +74,7 @@ pip install -e ".[dev]"
 
 ## Quick Start
 
-> `solve` is fully functional as of M2. `skills list/inspect/delete/tag` and `refine` still print `not yet implemented`; those ship in later milestones.
+> `solve`, `skills list/inspect/delete/tag` are fully functional as of M3. `refine` still prints `not yet implemented`; that ships in a later milestone.
 
 ```bash
 # Solve a task
@@ -100,7 +105,7 @@ skillbank refine
 |-----------|-------------|--------|
 | M1 | Scaffold + README (package structure, pyproject.toml, CLI stubs) | Done |
 | M2 | Core agent loop + LLM integration (solve command, Anthropic/OpenAI backends) | Done |
-| M3 | Skill extraction pipeline (Pydantic Skill model, instructor structured output) | Planned |
+| M3 | Skill extraction pipeline (Pydantic Skill model, instructor structured output, JSON store) | Done |
 | M4 | ChromaDB vector store + RAG retrieval (embed, upsert, top-k query) | Planned |
 | M5 | Skill evolution + Streamlit UI (use_count, success_rate, browse/feedback UI) | Planned |
 | M6 | Refine command + README polish (auto-merge near-duplicates, prune, demo GIF) | Planned |
