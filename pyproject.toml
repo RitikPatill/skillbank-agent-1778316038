@@ -32,3 +32,6 @@ skillbank = "skillbank.cli:app"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/skillbank"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

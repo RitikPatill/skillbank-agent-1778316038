@@ -1,15 +1,28 @@
 import typer
+from rich import print as rprint
+from rich.console import Console
+from rich.markdown import Markdown
+from rich.panel import Panel
+
+from skillbank.agent import solve_task
+from skillbank.config import get_config
 
 app = typer.Typer(name="skillbank", help="Skill-augmented LLM agent.")
+console = Console()
 
 
 @app.command()
 def solve(
-    task: str = typer.Argument(..., help="Task description to solve."),
-    show_skills: bool = typer.Option(False, "--show-skills", help="Print retrieved skills."),
+    task: str = typer.Argument(..., help="Task description to solve"),
+    show_skills: bool = typer.Option(False, "--show-skills", help="Show retrieved skills"),
 ) -> None:
     """Solve a task using the skill-augmented agent loop."""
-    typer.echo("[solve] not yet implemented")
+    config = get_config()
+    if show_skills:
+        typer.echo("No skills retrieved yet — skill bank empty.")
+    with console.status("[bold green]Thinking…"):
+        solution = solve_task(task, config)
+    rprint(Panel(Markdown(solution), title="Solution", border_style="green"))
 
 
 skills_app = typer.Typer(help="Manage the skill bank.")
