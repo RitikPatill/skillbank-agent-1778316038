@@ -20,10 +20,19 @@ def solve(
 ) -> None:
     """Solve a task using the skill-augmented agent loop."""
     config = get_config()
-    if show_skills:
-        typer.echo("No skills retrieved yet — skill bank empty.")
     with console.status("[bold green]Thinking…"):
-        solution, new_skills = solve_and_store(task, config, SkillStore())
+        solution, retrieved, new_skills = solve_and_store(task, config, SkillStore())
+    if show_skills:
+        if retrieved:
+            table = Table(title="Retrieved Skills", show_lines=True)
+            table.add_column("Name", style="bold")
+            table.add_column("Description")
+            table.add_column("Tags")
+            for s in retrieved:
+                table.add_row(s.name, s.description, ", ".join(s.tags))
+            console.print(table)
+        else:
+            typer.echo("No skills retrieved (skill bank empty or no matches).")
     rprint(Panel(Markdown(solution), title="Solution", border_style="green"))
     if new_skills:
         rprint(f"[dim]Stored {len(new_skills)} skill(s).[/dim]")

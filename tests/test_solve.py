@@ -58,12 +58,13 @@ def test_solve_openai_provider():
 
 
 def test_cli_solve_show_skills_flag():
-    with patch("skillbank.cli.solve_and_store", return_value=("mocked solution", [])):
+    with patch("skillbank.cli.solve_and_store", return_value=("mocked solution", [], [])):
         with patch("skillbank.cli.get_config", return_value=_anthropic_config()):
-            result = runner.invoke(app, ["solve", "hello", "--show-skills"])
+            with patch("skillbank.cli.SkillStore"):
+                result = runner.invoke(app, ["solve", "hello", "--show-skills"])
 
     assert result.exit_code == 0
-    assert "skill bank empty" in result.output
+    assert "Retrieved Skills" in result.output or "No skills retrieved" in result.output
 
 
 def test_solve_unknown_provider_raises():
@@ -75,12 +76,13 @@ def test_solve_unknown_provider_raises():
 def test_solve_and_store_calls_extract_and_upsert():
     config = _anthropic_config()
     mock_store = MagicMock()
+    mock_store.query.return_value = []
     fake_skill = Skill.from_draft(
         SkillDraft(name="X", description="D", code_pattern="pass", tags=[])
     )
     with patch("skillbank.agent.solve_task", return_value="the solution"):
         with patch("skillbank.agent.extract_skills", return_value=[fake_skill]):
-            solution, skills = solve_and_store("task text", config, mock_store)
+            solution, retrieved, skills = solve_and_store("task text", config, mock_store)
 
     assert solution == "the solution"
     assert skills == [fake_skill]
