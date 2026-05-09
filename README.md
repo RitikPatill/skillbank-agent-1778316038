@@ -52,7 +52,7 @@ The repository scaffold is complete. The following are in place:
 
 - `src/skillbank/` Python package (`__init__.py`, `cli.py`)
 - `pyproject.toml` — build backend (hatchling), all runtime dependencies pinned, `skillbank` console-scripts entry point registered
-- `tests/` directory with smoke-test stubs
+- `tests/test_cli.py` — four CLI tests covering `--help`, `solve`, `skills list`, and `refine` subcommands
 - MIT license and `.gitignore`
 - CLI subcommand routing via Typer: all commands and flags are registered and respond to `--help`
 
