@@ -46,20 +46,27 @@ Task Input
 
 Skills evolve: each tracks `use_count` and `success_rate` via thumbs-up/down in the UI. An on-demand `refine` command merges near-duplicates and prunes low-confidence skills.
 
-Steps 1, 2, 4, and 5 are planned; step 3 (SOLVE) is active as of M2.
+All five steps are now complete as of M4. ChromaDB replaces the JSON store; every `solve` call does RAG retrieval before generating the answer.
 
-## Current Status — M2
+## Current Status — M4
 
 **M1** (scaffold) shipped the package structure, `pyproject.toml`, Typer CLI stubs, and four `--help` tests. All subcommands printed `not yet implemented`.
 
-**M2** (core agent loop + LLM integration) is now complete. What changed:
+**M2** (core agent loop + LLM integration) added `solve_task()` dispatching to Anthropic/OpenAI, `get_config()`, and a functional `solve` CLI command with Rich output.
 
-- `src/skillbank/agent.py` — `solve_task()` dispatches to the Anthropic SDK or OpenAI SDK based on `SKILLBANK_PROVIDER`; builds a system prompt with a `{skills_block}` placeholder reserved for M4 RAG injection
-- `src/skillbank/config.py` — `get_config()` reads `SKILLBANK_PROVIDER`, `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`, and `SKILLBANK_MODEL` from the environment; validates required keys and exits with a clear error message
-- `src/skillbank/cli.py` — `solve` command is now functional: loads config, calls `solve_task`, and pretty-prints the solution as Markdown inside a Rich panel; `--show-skills` flag is wired (reports "skill bank empty" until M4)
-- `tests/test_solve.py` — four unit tests covering the Anthropic happy path, OpenAI provider, CLI `--show-skills` flag, and unknown-provider error (all mocked; no live API calls required)
+**M3** (skill extraction pipeline) shipped `SkillDraft`/`Skill` Pydantic v2 models, `extract_skills()` via `instructor` structured output, JSON-backed `SkillStore`, and `solve_and_store()`.
 
-Still stubbed (`not yet implemented`): `skills list`, `skills inspect`, `skills delete`, `skills tag`, `refine`.
+**M4** (ChromaDB vector store + RAG retrieval) is now complete. What changed:
+
+- `src/skillbank/embedder.py` — new module; exposes a single `embed(text) -> list[float]` function backed by `sentence-transformers` (`all-MiniLM-L6-v2`, CPU-only, unit-normalised). The underlying `SentenceTransformer` instance is loaded lazily on first call via a module-level singleton to avoid repeated model loads.
+- `src/skillbank/store.py` — full rewrite; `SkillStore` now wraps a local ChromaDB `PersistentClient` (cosine space) persisted at `~/.skillbank/chroma/`. Embedding is delegated to `embedder.embed`. New `query(task, top_k=3)` retrieves the most similar skills by cosine distance. `upsert()` skips near-duplicates whose cosine similarity to any existing skill is ≥ 0.92 (distance < 0.08); name-based exact deduplication (case-insensitive) runs first. All CRUD methods (`all`, `get`, `delete`, `add_tag`) are preserved.
+- `src/skillbank/agent.py` — `build_system_prompt(skills)` now formats each retrieved `Skill` as a fenced few-shot block with name, description, code pattern, and tags. `solve_task()` accepts an optional `skills=` kwarg. `solve_and_store()` now returns a 3-tuple `(solution, retrieved_skills, new_skills)` and calls `store.query()` before the LLM call.
+- `src/skillbank/cli.py` — `solve` unpacks the 3-tuple; `--show-skills` prints a Rich table of retrieved skills (Name / Tags / Uses) or "skill bank empty" if none were retrieved.
+- `tests/test_vector_store.py` — new test module; uses a deterministic hash-based fake embedding function (no model download) to exercise `upsert_and_all`, overlap deduplication, `query_returns_top_k`, `delete`, `add_tag`, `query_empty_store`, and `get_unknown_returns_none`.
+- `tests/test_store.py` — rewritten for ChromaDB; adds `test_query_returns_empty_on_empty_store`, `test_query_returns_similar_skill`, and `test_upsert_deduplicates_by_semantic_overlap`.
+- `tests/test_solve.py` — updated for 3-tuple unpacking and `skills=` kwarg.
+
+Still stubbed: `refine`.
 
 ## Install
 
@@ -69,7 +76,7 @@ pip install -e ".[dev]"
 
 ## Quick Start
 
-> `solve` is fully functional as of M2. `skills list/inspect/delete/tag` and `refine` still print `not yet implemented`; those ship in later milestones.
+> `solve`, `skills list/inspect/delete/tag`, and `--show-skills` are fully functional as of M4. `--show-skills` now displays a table of actually-retrieved skills (or reports an empty bank on the first run). `refine` still prints `not yet implemented`; that ships in a later milestone.
 
 ```bash
 # Solve a task
@@ -100,8 +107,8 @@ skillbank refine
 |-----------|-------------|--------|
 | M1 | Scaffold + README (package structure, pyproject.toml, CLI stubs) | Done |
 | M2 | Core agent loop + LLM integration (solve command, Anthropic/OpenAI backends) | Done |
-| M3 | Skill extraction pipeline (Pydantic Skill model, instructor structured output) | Planned |
-| M4 | ChromaDB vector store + RAG retrieval (embed, upsert, top-k query) | Planned |
+| M3 | Skill extraction pipeline (Pydantic Skill model, instructor structured output, JSON store) | Done |
+| M4 | ChromaDB vector store + RAG retrieval (embed, upsert, top-k query) | Done |
 | M5 | Skill evolution + Streamlit UI (use_count, success_rate, browse/feedback UI) | Planned |
 | M6 | Refine command + README polish (auto-merge near-duplicates, prune, demo GIF) | Planned |
 
